@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# env files
+.env
+
+# uploads (user content, not source)
+uploads/*
+!uploads/.gitkeep
+
+# misc
+.DS_Store
+*.log
