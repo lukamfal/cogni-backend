@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.schemas.user import UserOut
-from app.services.storage import upload_photo
+from app.services.storage import upload_photo, InvalidImage
 
 router = APIRouter(prefix="/profiles", tags=["Perfil"])
 
@@ -20,8 +20,11 @@ async def update_avatar(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    file_bytes = await photo.read()
-    url, _ = upload_photo(file_bytes, photo.content_type, folder="avatars")
+    file_bytes = await photo.read(5 * 1024 * 1024 + 1)
+    try:
+        url, _ = upload_photo(file_bytes, folder="avatars")
+    except InvalidImage as e:
+        raise HTTPException(400, str(e))
     current_user.avatar_url = url
     db.commit()
     db.refresh(current_user)
