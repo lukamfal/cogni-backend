@@ -18,8 +18,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         name=payload.name,
         email=payload.email,
         hashed_password=hash_password(payload.password),
-        # O papel nunca vem do cadastro público: toda conta nova é de quem joga.
-        role=UserRole.ELDER,
+        role=UserRole(payload.role),
     )
     db.add(user)
     db.commit()

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import auth, games, family, profiles, scores, health
+from app.api.routes import auth, games, family, profiles, scores, health, care
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -34,6 +34,7 @@ app.include_router(family.router, prefix="/api")
 app.include_router(profiles.router, prefix="/api")
 app.include_router(scores.router, prefix="/api")
 app.include_router(health.router, prefix="/api")
+app.include_router(care.router, prefix="/api")
 
 
 @app.get("/healthcheck")
