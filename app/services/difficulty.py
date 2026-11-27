@@ -11,7 +11,11 @@ def suggest_difficulty(user_id: int, game_type: GameType, db: Session) -> Diffic
     """
     recent = (
         db.query(GameSession)
-        .filter(GameSession.user_id == user_id, GameSession.game_type == game_type)
+        .filter(
+            GameSession.user_id == user_id,
+            GameSession.game_type == game_type,
+            GameSession.finished_at.isnot(None),  # jogos abandonados não contam
+        )
         .order_by(GameSession.started_at.desc())
         .limit(5)
         .all()

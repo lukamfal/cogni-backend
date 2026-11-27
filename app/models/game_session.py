@@ -10,6 +10,8 @@ class GameType(str, enum.Enum):
     MATH = "math"
     FACE = "face"
     WORD = "word"
+    RACE = "race"
+    TUG = "tug"
 
 
 class Difficulty(str, enum.Enum):
