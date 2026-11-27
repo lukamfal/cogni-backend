@@ -9,7 +9,7 @@ from app.schemas.game import (
     GameSessionCreate, GameSessionFinish, GameSessionOut,
     MemoryGameConfig, MathQuestion, FaceQuestion, WordQuestion,
 )
-from app.services import memory_game, math_game, face_game, word_game, difficulty as diff_service
+from app.services import memory_game, math_game, face_game, word_game, race_game, tug_game, difficulty as diff_service
 
 router = APIRouter(prefix="/games", tags=["Jogos"])
 
@@ -257,3 +257,84 @@ def finish_word(
     correct = _correct(payload, total)
     score = word_game.calculate_score(correct, total, session.difficulty)
     return _save_result(session, db, score, correct, total, _elapsed_seconds(session))
+
+
+def _start_session(game: GameType, payload: GameSessionCreate, total: int, user: User, db: Session) -> GameSession:
+    session = GameSession(user_id=user.id, game_type=game, difficulty=payload.difficulty, total_questions=total)
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+
+# ---------- CORRIDA ----------
+@router.post("/race/start")
+def start_race(
+    payload: GameSessionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    cfg = race_game.config(payload.difficulty)
+    session = _start_session(GameType.RACE, payload, cfg["rounds"], current_user, db)
+    return {"session_id": session.id, **cfg}
+
+
+@router.post("/race/finish/{session_id}", response_model=GameSessionOut)
+def finish_race(
+    session_id: int,
+    payload: GameSessionFinish,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    session = _open_session_for_finish(session_id, GameType.RACE, current_user, db)
+    total = session.total_questions
+    won = _correct(payload, total)
+    duration = _elapsed_seconds(session)
+    # Cada largada leva alguns segundos de semáforo: rápido demais não é possível.
+    if duration < total * 2:
+        won = 0
+    try:
+        avg_ms = float((payload.metadata or {}).get("avg_reaction_ms", 1000))
+    except (TypeError, ValueError):
+        avg_ms = 1000.0
+    score = race_game.calculate_score(won, avg_ms, session.difficulty) if won else 0
+    return _save_result(session, db, score, won, total, duration)
+
+
+# ---------- CABO DE GUERRA ----------
+@router.post("/tug/start")
+def start_tug(
+    payload: GameSessionCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    cfg = tug_game.config(payload.difficulty)
+    session = _start_session(GameType.TUG, payload, 1, current_user, db)
+    return {"session_id": session.id, "countdown_seconds": tug_game.COUNTDOWN_SECONDS, **cfg}
+
+
+@router.post("/tug/finish/{session_id}", response_model=GameSessionOut)
+def finish_tug(
+    session_id: int,
+    payload: GameSessionFinish,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    session = _open_session_for_finish(session_id, GameType.TUG, current_user, db)
+    cfg = tug_game.config(session.difficulty)
+    target, limit = cfg["target_clicks"], cfg["time_limit_seconds"]
+    try:
+        clicks = int((payload.metadata or {}).get("clicks", 0))
+    except (TypeError, ValueError):
+        clicks = 0
+    clicks = max(0, min(clicks, target))
+    duration = _elapsed_seconds(session)
+    played = duration - tug_game.COUNTDOWN_SECONDS
+    # Vitória só vale com os toques todos, dentro do tempo (com folga de rede) e num tempo humano.
+    won = (
+        payload.correct_answers >= 1
+        and clicks >= target
+        and tug_game.MIN_SECONDS_TO_WIN <= played <= limit + 5
+    )
+    score = tug_game.calculate_score(won, clicks, limit - played, session.difficulty)
+    return _save_result(session, db, score, 1 if won else 0, 1, duration)
