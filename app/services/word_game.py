@@ -28,8 +28,8 @@ DIFFICULTY_CONFIG = {
 
 
 def _mask_word(word: str, n_hidden: int) -> tuple[str, list[str]]:
-    """Retorna a palavra mascarada e as letras corretas escondidas."""
-    indices = random.sample(range(len(word)), min(n_hidden, len(word)))
+    """Retorna a palavra mascarada e as letras escondidas, da esquerda para a direita."""
+    indices = sorted(random.sample(range(len(word)), min(n_hidden, len(word))))
     masked = list(word)
     hidden = []
     for i in indices:
