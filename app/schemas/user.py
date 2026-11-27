@@ -1,14 +1,16 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from typing import Optional
+from typing import Literal, Optional
 from datetime import datetime
 from app.models.user import UserRole
 
 
 class UserCreate(BaseModel):
-    # O papel não é aceito aqui de propósito: quem se cadastra não escolhe o próprio papel.
     name: str = Field(min_length=1, max_length=120)
     email: EmailStr
     password: str = Field(min_length=6, max_length=128)
+    # Só dá para escolher entre jogar e acompanhar. Acompanhar não dá acesso a nada
+    # sozinho: cada pessoa acompanhada precisa permitir.
+    role: Literal["elder", "caregiver"] = "elder"
 
     @field_validator("name")
     @classmethod
