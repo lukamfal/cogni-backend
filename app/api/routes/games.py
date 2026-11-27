@@ -209,8 +209,9 @@ def start_word(
     db.commit()
     db.refresh(session)
 
-    safe_questions = [{k: v for k, v in q.items() if k not in ("correct_letters", "full_word")} for q in questions]
-    return {"session_id": session.id, "questions": safe_questions}
+    # As respostas vão junto para o front conferir cada palavra na hora;
+    # o placar final continua sendo calculado aqui no finish.
+    return {"session_id": session.id, "questions": questions}
 
 
 @router.post("/word/finish/{session_id}", response_model=GameSessionOut)
