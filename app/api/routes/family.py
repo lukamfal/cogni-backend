@@ -5,11 +5,9 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.family_member import FamilyMember
 from app.schemas.family import FamilyMemberOut
-from app.services.storage import upload_photo, delete_photo
+from app.services.storage import upload_photo, delete_photo, InvalidImage
 
 router = APIRouter(prefix="/family", tags=["Familiares"])
-
-ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 @router.get("/", response_model=list[FamilyMemberOut])
@@ -19,25 +17,26 @@ def list_family(current_user: User = Depends(get_current_user), db: Session = De
 
 @router.post("/", response_model=FamilyMemberOut, status_code=201)
 async def add_family_member(
-    name: str = Form(...),
-    relation: str = Form(...),
+    name: str = Form(..., min_length=1, max_length=120),
+    relation: str = Form(..., min_length=1, max_length=60),
     photo: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if photo.content_type not in ALLOWED_TYPES:
-        raise HTTPException(400, "Formato de imagem inválido. Use JPG, PNG ou WebP.")
+    if not name.strip():
+        raise HTTPException(400, "Digite o nome do familiar.")
 
-    file_bytes = await photo.read()
-    if len(file_bytes) > 5 * 1024 * 1024:
-        raise HTTPException(400, "Foto muito grande. Máximo 5MB.")
-
-    url, key = upload_photo(file_bytes, photo.content_type)
+    # Lê no máximo 5MB + 1 byte: o suficiente para saber se passou do limite.
+    file_bytes = await photo.read(5 * 1024 * 1024 + 1)
+    try:
+        url, key = upload_photo(file_bytes)
+    except InvalidImage as e:
+        raise HTTPException(400, str(e))
 
     member = FamilyMember(
         user_id=current_user.id,
-        name=name,
-        relation=relation,
+        name=name.strip(),
+        relation=relation.strip(),
         photo_url=url,
         photo_key=key,
     )

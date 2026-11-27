@@ -1,19 +1,27 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional
 from datetime import datetime
 from app.models.user import UserRole
 
 
 class UserCreate(BaseModel):
-    name: str
+    # O papel não é aceito aqui de propósito: quem se cadastra não escolhe o próprio papel.
+    name: str = Field(min_length=1, max_length=120)
     email: EmailStr
-    password: str
-    role: UserRole = UserRole.ELDER
+    password: str = Field(min_length=6, max_length=128)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Digite seu nome")
+        return v
 
 
 class UserLogin(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(max_length=128)
 
 
 class UserOut(BaseModel):

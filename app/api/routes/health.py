@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import date
 
@@ -47,7 +47,7 @@ def patch_log(
 
 @router.get("/history", response_model=list[HealthLogOut])
 def history(
-    days: int = 30,
+    days: int = Query(30, ge=1, le=365),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

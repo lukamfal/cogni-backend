@@ -11,8 +11,10 @@ app = FastAPI(
     title=settings.APP_NAME,
     description="API de jogos cognitivos para idosos",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # A documentação mostra todas as rotas da API: só fica aberta em desenvolvimento.
+    docs_url="/docs" if settings.is_development else None,
+    redoc_url="/redoc" if settings.is_development else None,
+    openapi_url="/openapi.json" if settings.is_development else None,
 )
 
 app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")

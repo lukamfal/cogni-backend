@@ -14,8 +14,8 @@ class HealthLogCreate(BaseModel):
     sleep_hours: float = Field(0.0, ge=0.0, le=24.0)
     mood: Optional[Mood] = None
     medication_taken: bool = False
-    medication_notes: Optional[str] = None
-    notes: Optional[str] = None
+    medication_notes: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class HealthLogUpdate(BaseModel):
@@ -27,8 +27,8 @@ class HealthLogUpdate(BaseModel):
     sleep_hours: Optional[float] = Field(None, ge=0.0, le=24.0)
     mood: Optional[Mood] = None
     medication_taken: Optional[bool] = None
-    medication_notes: Optional[str] = None
-    notes: Optional[str] = None
+    medication_notes: Optional[str] = Field(None, max_length=500)
+    notes: Optional[str] = Field(None, max_length=2000)
 
 
 class HealthLogOut(BaseModel):

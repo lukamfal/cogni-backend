@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token
-from app.models.user import User
+from app.core import rate_limit
+from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserLogin, UserOut, TokenOut
 
 router = APIRouter(prefix="/auth", tags=["Autenticação"])
@@ -17,7 +18,8 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         name=payload.name,
         email=payload.email,
         hashed_password=hash_password(payload.password),
-        role=payload.role,
+        # O papel nunca vem do cadastro público: toda conta nova é de quem joga.
+        role=UserRole.ELDER,
     )
     db.add(user)
     db.commit()
@@ -28,16 +30,19 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenOut)
-def login(payload: UserLogin, db: Session = Depends(get_db)):
+def login(payload: UserLogin, request: Request, db: Session = Depends(get_db)):
+    ip = request.client.host if request.client else "desconhecido"
+    if rate_limit.is_blocked(payload.email, ip):
+        raise HTTPException(
+            status_code=429,
+            detail="Muitas tentativas de entrar. Espere 15 minutos e tente de novo.",
+        )
+
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
+        rate_limit.register_failure(payload.email, ip)
+        raise HTTPException(status_code=401, detail="E-mail ou senha incorretos")
 
+    rate_limit.clear(payload.email)
     token = create_access_token(str(user.id))
     return TokenOut(access_token=token, user=UserOut.model_validate(user))
-
-
-@router.get("/me", response_model=UserOut)
-def me(db: Session = Depends(get_db), token: str = ""):
-    # handled by deps in real usage, shown here for clarity
-    pass
